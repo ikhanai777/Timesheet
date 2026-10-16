@@ -59,7 +59,7 @@ For a chosen date (default: today) the user adds one or more **entries**. Each e
 | Booking System | Choice: `NTIME` / `P6` | Yes | Segmented toggle. Defaults to the last system used for that project. |
 
 - **FR-1.1** A day may contain any number of entries, including several for the same project (e.g. 2 h in NTIME and 1 h in P6 for Project A). On the dashboard these are summed per project and also split per system.
-- **FR-1.2** Entries can be edited and deleted. Totals recalculate immediately.
+- **FR-1.2** Entries can be edited and deleted. Totals recalculate immediately. Each entry is saved as soon as it is confirmed, which also creates the day's Day Sheet; **Save day** is only needed to log a day with no project entries (a full day of overhead) or a non-working day.
 - **FR-1.3** The user can pick any past date or the current date. Future dates are blocked by default (setting: *Allow future dates*, off).
 - **FR-1.4** "Copy previous day" button: copies the most recent day's entries into the selected date as a starting point.
 - **FR-1.5** Entry form shows a live hours bar: `Project hours | Overhead | Available`.
