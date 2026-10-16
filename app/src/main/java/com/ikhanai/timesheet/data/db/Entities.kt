@@ -1,5 +1,6 @@
 package com.ikhanai.timesheet.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -61,6 +62,9 @@ data class TimeEntry(
     val projectId: Long,
     val minutes: Int,
     val system: BookingSystem,
+    /** What was worked on, e.g. "Prepared IFC drawings". */
+    @ColumnInfo(defaultValue = "")
+    val description: String = "",
     val createdAt: Instant = Instant.now(),
     val updatedAt: Instant = Instant.now(),
 )

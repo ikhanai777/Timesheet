@@ -52,9 +52,10 @@ For a chosen date (default: today) the user adds one or more **entries**. Each e
 
 | Field | Type | Required | Rules |
 |---|---|---|---|
-| Project Name | Text | Yes | 1–100 chars. Autocomplete from saved projects. |
+| Project Name | Text | Yes | 1–100 chars. Dropdown of saved projects (see FR-4.5); typing filters the list or enters a new project. |
 | Project Number | Text | Yes | 1–30 chars. Auto-filled when a saved project is picked. |
 | Oracle Code | Text | Yes | 1–30 chars. Auto-filled when a saved project is picked. |
+| Task Description | Text (multi-line) | Yes | 1–200 chars. What was worked on, e.g. "Reviewed piping layout drawings". |
 | Manhours | Decimal | Yes | > 0, step **0.5** (configurable to 0.25), max = remaining hours of the day. |
 | Booking System | Choice: `NTIME` / `P6` | Yes | Segmented toggle. Defaults to the last system used for that project. |
 
@@ -145,13 +146,14 @@ grandTotal(P)              = Σ projectTotal + overheadTotal
 - **FR-4.2** Uniqueness key: **Project Number + Oracle Code**. Entering an existing combination with a different name prompts: *"Update project name?"*
 - **FR-4.3** Archived projects are hidden from autocomplete but keep their history on the dashboard.
 - **FR-4.4** Editing a project's name/number/code updates how past entries are displayed (entries reference the project by ID).
+- **FR-4.5** Project name, number and Oracle code are stored once entered. When adding a new entry, the user can pick a saved project from a dropdown on the Project Name field instead of retyping; picking fills in the number, Oracle code and last-used booking system. Entering a new name, number and code still works and saves the new project.
 
 ### FR-5 History & export
 
 - **FR-5.1** *History* screen: calendar month view; each day shows a dot coloured by status (complete = 8 h logged incl. overhead, not logged, leave/holiday).
 - **FR-5.2** Export of any Day / Week / Month (or custom range) to **CSV** and **PDF**, shared through the Android share sheet. CSV columns:
-  `Date, Day Type, Project Name, Project Number, Oracle Code, System, Hours`
-  with overhead exported as rows where `Project Name = Overhead`, `System = ` (blank or the configured overhead system).
+  `Date, Day Type, Project Name, Project Number, Oracle Code, Task Description, System, Hours`
+  with overhead exported as rows where `Project Name = Overhead`, `Task Description = Department Hours`, `System = ` (blank or the configured overhead system).
 - **FR-5.3** Copy-to-clipboard of the period summary in plain text, grouped by system, to paste into NTIME/P6.
 
 ### FR-6 Settings
@@ -208,9 +210,10 @@ Bottom navigation: **Dashboard · Add Entry · History · Projects**; Settings v
 ```
 
 ### 4.3 Add/Edit Entry (bottom sheet)
-- Project Name (autocomplete; picking fills Number + Oracle Code)
+- Project Name (dropdown of saved projects, or type a new one; picking fills Number + Oracle Code)
 - Project Number
 - Oracle Code
+- Task Description (multi-line, 200 chars)
 - Hours: stepper (− / +) with numeric input; shows "Remaining: x h"
 - Booking System: segmented button `NTIME | P6`
 - Buttons: Cancel / Save
@@ -271,6 +274,7 @@ data class TimeEntry(
     val projectId: Long,
     val minutes: Int,                         // 4.5 h = 270, see note
     val system: BookingSystem,
+    val description: String,                 // task description, 1–200 chars
     val createdAt: Instant,
     val updatedAt: Instant,
 )
@@ -352,7 +356,7 @@ app/
 | Working day saved with no entries | Overhead = full Available Hours. |
 | Hours = 0 or negative | Field error: "Hours must be greater than 0." |
 | Hours not a multiple of step | Rounded to nearest step on blur, with snackbar notice. |
-| Same project twice in a day, same system | Allowed; prompt "Merge with existing entry?" (default: merge). |
+| Same project twice in a day, same system | Allowed; prompt "Merge with existing entry?" (default: merge). Merging joins the task descriptions with "; ". |
 | Same project, different systems | Allowed; kept as separate entries. |
 | Day type changed from Working → Leave | Existing entries kept but warning shown; overhead becomes 0. |
 | Delete project that has entries | Not allowed; offer Archive instead. |

@@ -2,6 +2,7 @@ package com.ikhanai.timesheet.data
 
 import android.app.Application
 import android.database.sqlite.SQLiteConstraintException
+import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.ikhanai.timesheet.data.db.TimesheetDatabase
@@ -43,7 +44,7 @@ class RepositoryTest {
     fun tearDown() = db.close()
 
     private suspend fun addEntry(projectId: Long, minutes: Int, system: BookingSystem, date: LocalDate = day) =
-        repo.saveEntry(date, DayType.WORKING, 480, null, null, projectId, minutes, system)
+        repo.saveEntry(date, DayType.WORKING, 480, null, null, projectId, minutes, system, "Task")
 
     @Test
     fun `saving an entry creates the day sheet and observeDays feeds the calculator`() = runBlocking {
@@ -55,8 +56,38 @@ class RepositoryTest {
         assertEquals(480, repo.getSheet(day)!!.availableMinutes)
         val days = repo.observeDays(Periods.day(day)).first()
         assertEquals(1, days.size)
+        assertEquals("Task", days.single().entries.first().description)
         assertEquals(60, TimesheetCalculator.overheadMinutes(days.single()))
         assertEquals(BookingSystem.P6, db.projectDao().get(b)!!.lastSystem)
+    }
+
+    @Test
+    fun `migration from version 1 keeps entries and adds an empty description`() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val name = "migration-test.db"
+        context.deleteDatabase(name)
+        val path = context.getDatabasePath(name).apply { parentFile?.mkdirs() }
+        SQLiteDatabase.openOrCreateDatabase(path, null).use { v1 ->
+            v1.execSQL("CREATE TABLE `project` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `projectNumber` TEXT NOT NULL, `oracleCode` TEXT NOT NULL, `lastSystem` TEXT, `archived` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL)")
+            v1.execSQL("CREATE UNIQUE INDEX `index_project_projectNumber_oracleCode` ON `project` (`projectNumber`, `oracleCode`)")
+            v1.execSQL("CREATE TABLE `day_sheet` (`date` INTEGER NOT NULL, `dayType` TEXT NOT NULL, `availableMinutes` INTEGER NOT NULL, `note` TEXT, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`date`))")
+            v1.execSQL("CREATE TABLE `time_entry` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `date` INTEGER NOT NULL, `projectId` INTEGER NOT NULL, `minutes` INTEGER NOT NULL, `system` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, FOREIGN KEY(`date`) REFERENCES `day_sheet`(`date`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`projectId`) REFERENCES `project`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )")
+            v1.execSQL("CREATE INDEX `index_time_entry_date` ON `time_entry` (`date`)")
+            v1.execSQL("CREATE INDEX `index_time_entry_projectId` ON `time_entry` (`projectId`)")
+            v1.execSQL("INSERT INTO project VALUES (1, 'A', 'PRJ-1', '100', 'NTIME', 0, 0, 0)")
+            v1.execSQL("INSERT INTO day_sheet VALUES (${day.toEpochDay()}, 'WORKING', 480, NULL, 0)")
+            v1.execSQL("INSERT INTO time_entry VALUES (1, ${day.toEpochDay()}, 1, 240, 'NTIME', 0, 0)")
+            v1.version = 1
+        }
+        val migrated = Room.databaseBuilder(context, TimesheetDatabase::class.java, name)
+            .addMigrations(TimesheetDatabase.MIGRATION_1_2)
+            .build()
+        runBlocking {
+            val entry = migrated.timeEntryDao().getForDate(day).single()
+            assertEquals(240, entry.minutes)
+            assertEquals("", entry.description)
+        }
+        migrated.close()
     }
 
     @Test
@@ -89,14 +120,16 @@ class RepositoryTest {
         val a = repo.createProject("A", "PRJ-1", "100")
         addEntry(a, 120, BookingSystem.NTIME)
         val existing = repo.entriesFor(day).single()
-        repo.saveEntry(day, DayType.WORKING, 480, null, existing, a, 60, BookingSystem.NTIME)
+        repo.saveEntry(day, DayType.WORKING, 480, null, existing, a, 60, BookingSystem.NTIME, "Site visit")
         assertEquals(180, repo.entriesFor(day).single().minutes)
+        assertEquals("Task; Site visit", repo.entriesFor(day).single().description)
 
         val merged = repo.entriesFor(day).single()
-        repo.saveEntry(day, DayType.WORKING, 480, merged, null, a, 300, BookingSystem.P6)
+        repo.saveEntry(day, DayType.WORKING, 480, merged, null, a, 300, BookingSystem.P6, "Design review")
         val edited = repo.entriesFor(day).single()
         assertEquals(300, edited.minutes)
         assertEquals(BookingSystem.P6, edited.system)
+        assertEquals("Design review", edited.description)
     }
 
     @Test
@@ -130,6 +163,7 @@ class RepositoryTest {
         assertNull(repo.latestDateWithEntriesBefore(day.minusDays(3)))
         assertEquals(2, repo.copyEntries(day.minusDays(3), day, DayType.WORKING, 480))
         assertEquals(listOf(240, 60), repo.entriesFor(day).map { it.minutes })
+        assertEquals(listOf("Task", "Task"), repo.entriesFor(day).map { it.description })
     }
 
     @Test
@@ -147,6 +181,7 @@ class RepositoryTest {
         assertEquals("A, \"quoted\"", restored.projects.single().name)
         assertEquals(2, restored.daySheets.size)
         assertEquals(240, restored.entries.single().minutes)
+        assertEquals("Task", restored.entries.single().description)
         assertEquals(DayType.PUBLIC_HOLIDAY, repo.getSheet(day.plusDays(1))!!.dayType)
     }
 }

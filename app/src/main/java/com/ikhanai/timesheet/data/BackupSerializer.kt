@@ -46,6 +46,7 @@ object BackupSerializer {
                 .put("projectId", e.projectId)
                 .put("minutes", e.minutes)
                 .put("system", e.system.name)
+                .put("description", e.description)
                 .put("createdAt", e.createdAt.toString())
                 .put("updatedAt", e.updatedAt.toString())
         }))
@@ -85,6 +86,7 @@ object BackupSerializer {
                 projectId = o.getLong("projectId"),
                 minutes = o.getInt("minutes"),
                 system = BookingSystem.valueOf(o.getString("system")),
+                description = o.optString("description", ""),
                 createdAt = Instant.parse(o.getString("createdAt")),
                 updatedAt = Instant.parse(o.getString("updatedAt")),
             )

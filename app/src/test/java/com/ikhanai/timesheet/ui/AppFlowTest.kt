@@ -60,8 +60,8 @@ class AppFlowTest {
         var d = from
         while (d.isBefore(today.minusDays(1))) {
             if (d.dayOfWeek != DayOfWeek.SATURDAY && d.dayOfWeek != DayOfWeek.SUNDAY) {
-                repo.saveEntry(d, DayType.WORKING, 480, null, null, a, if (d.dayOfMonth % 2 == 0) 300 else 240, BookingSystem.NTIME)
-                repo.saveEntry(d, DayType.WORKING, 480, null, null, b, 180, BookingSystem.P6)
+                repo.saveEntry(d, DayType.WORKING, 480, null, null, a, if (d.dayOfMonth % 2 == 0) 300 else 240, BookingSystem.NTIME, "Design calculations")
+                repo.saveEntry(d, DayType.WORKING, 480, null, null, b, 180, BookingSystem.P6, "Planning update")
             }
             d = d.plusDays(1)
         }
@@ -101,12 +101,13 @@ class AppFlowTest {
 
     private fun field(label: String) = compose.onNode(hasSetTextAction() and hasText(label, substring = true))
 
-    private fun addEntry(search: String, suggestion: String, hours: String, system: BookingSystem) {
+    private fun addEntry(search: String, suggestion: String, description: String, hours: String, system: BookingSystem) {
         compose.onNodeWithText("Add project").performClick()
         waitForText("Add project hours")
         field("Project name").performTextInput(search)
         waitForText(suggestion)
         compose.onNodeWithText(suggestion).performClick()
+        field("Task description").performTextInput(description)
         field("Manhours").performTextReplacement(hours)
         compose.onAllNodesWithText(system.label).onLast().performClick()
         compose.onNodeWithText("Save").performClick()
@@ -126,15 +127,18 @@ class AppFlowTest {
 
         compose.onNodeWithText("Add project").performClick()
         waitForText("Add project hours")
-        field("Project name").performTextInput("Proj")
-        waitForText("PRJ-2041 · 4100.22.07")
+        // Saved projects are offered in a dropdown without typing anything.
+        field("Project name").performClick()
+        waitForText("PRJ-2055 · 4100.31.02")
+        screenshot("03a_project_dropdown")
         compose.onNodeWithText("PRJ-2041 · 4100.22.07").performClick()
+        field("Task description").performTextInput("Reviewed piping layout drawings")
         field("Manhours").performTextReplacement("4")
         screenshot("03_entry_sheet")
         compose.onNodeWithText("Save").performClick()
         waitForText("4.0 h")
 
-        addEntry("PRJ-2055", "PRJ-2055 · 4100.31.02", "3", BookingSystem.P6)
+        addEntry("PRJ-2055", "PRJ-2055 · 4100.31.02", "Updated P6 schedule", "3", BookingSystem.P6)
         waitForText("3.0 h")
         waitForText("Projects 7.0 · Overhead 1.0", substring = true)
         screenshot("04_entry_day_overhead")
@@ -145,6 +149,7 @@ class AppFlowTest {
         field("Project name").performTextInput("Project C")
         field("Project number").performTextInput("PRJ-3000")
         field("Oracle code").performTextInput("4100.40.01")
+        field("Task description").performTextInput("Extra work")
         field("Manhours").performTextReplacement("2")
         compose.onNodeWithText("Save").performClick()
         waitForText("exceed available hours", substring = true)

@@ -64,8 +64,8 @@ class EntryViewModelTest {
         assertEquals(480, empty.overheadMinutes)
 
         // AC1: A 4h NTIME + B 3h P6 -> 1h overhead.
-        val a = EntryForm("Project A", "PRJ-2041", "4100.22.07", "4", BookingSystem.NTIME)
-        val b = EntryForm("Project B", "PRJ-2055", "4100.31.02", "3", BookingSystem.P6)
+        val a = EntryForm("Project A", "PRJ-2041", "4100.22.07", "Drawings review", "4", BookingSystem.NTIME)
+        val b = EntryForm("Project B", "PRJ-2055", "4100.31.02", "Schedule update", "3", BookingSystem.P6)
         assertEquals(SubmitResult.Saved(null), vm.submitEntry(a, null))
         vm.awaitState { it.rows.size == 1 }
         assertEquals(SubmitResult.Saved(null), vm.submitEntry(b, null))
@@ -74,6 +74,7 @@ class EntryViewModelTest {
         assertEquals(240, s.ntimeMinutes)
         assertEquals(180, s.p6Minutes)
         assertEquals(60, s.overheadMinutes)
+        assertEquals(listOf("Drawings review", "Schedule update"), s.rows.map { it.entry.description })
 
         // AC3: 7h logged; 1.5h more would exceed 8h.
         val tooMuch = vm.submitEntry(a.copy(name = "Project C", number = "PRJ-3", hours = "1.5"), null)
@@ -84,8 +85,9 @@ class EntryViewModelTest {
         )
 
         // Required fields and rounding to the 0.5 h step.
-        val blank = vm.submitEntry(EntryForm("", "", "", "", BookingSystem.NTIME), null) as SubmitResult.Invalid
+        val blank = vm.submitEntry(EntryForm("", "", "", "", "", BookingSystem.NTIME), null) as SubmitResult.Invalid
         assertTrue(blank.errors.name != null && blank.errors.number != null && blank.errors.code != null)
+        assertEquals("Task description is required", blank.errors.description)
         assertEquals("Enter the number of hours", blank.errors.hours)
 
         // FR-4.2: same number + code with a different name asks to rename.

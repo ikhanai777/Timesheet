@@ -53,6 +53,7 @@ data class EntryForm(
     val name: String,
     val number: String,
     val code: String,
+    val description: String,
     val hours: String,
     val system: BookingSystem,
 )
@@ -61,9 +62,10 @@ data class FormErrors(
     val name: String? = null,
     val number: String? = null,
     val code: String? = null,
+    val description: String? = null,
     val hours: String? = null,
 ) {
-    val any: Boolean get() = name != null || number != null || code != null || hours != null
+    val any: Boolean get() = name != null || number != null || code != null || description != null || hours != null
 }
 
 sealed interface SubmitResult {
@@ -182,6 +184,7 @@ class EntryViewModel(
         val name = form.name.trim()
         val number = form.number.trim()
         val code = form.code.trim()
+        val description = form.description.trim()
 
         val parsed = Hours.parse(form.hours)
         val step = s.settings.stepMinutes
@@ -205,6 +208,7 @@ class EntryViewModel(
             name = lengthError(name, "Project name", 100),
             number = lengthError(number, "Project number", 30),
             code = lengthError(code, "Oracle code", 30),
+            description = lengthError(description, "Task description", MAX_DESCRIPTION),
             hours = hoursError,
         )
         if (errors.any) return SubmitResult.Invalid(errors)
@@ -238,6 +242,7 @@ class EntryViewModel(
             projectId = projectId,
             minutes = finalMinutes,
             system = form.system,
+            description = description,
         )
         val note = if (parsed != finalMinutes) "Hours rounded to ${Fmt.hours(finalMinutes)}" else null
         return SubmitResult.Saved(note)
@@ -251,5 +256,6 @@ class EntryViewModel(
 
     companion object {
         const val DATE_KEY = "date"
+        const val MAX_DESCRIPTION = 200
     }
 }

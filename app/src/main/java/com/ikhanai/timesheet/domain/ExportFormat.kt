@@ -15,6 +15,7 @@ data class ExportRow(
     val projectName: String,
     val projectNumber: String,
     val oracleCode: String,
+    val description: String,
     val system: String,
     val minutes: Int,
 )
@@ -23,7 +24,7 @@ data class ExportRow(
 object ExportFormat {
 
     const val OVERHEAD_NAME = "Overhead"
-    const val CSV_HEADER = "Date,Day Type,Project Name,Project Number,Oracle Code,System,Hours"
+    const val CSV_HEADER = "Date,Day Type,Project Name,Project Number,Oracle Code,Task Description,System,Hours"
 
     /** One row per entry, plus one Overhead row per working day with overhead > 0. */
     fun rows(
@@ -42,6 +43,7 @@ object ExportFormat {
                     projectName = project?.name ?: "Unknown project",
                     projectNumber = project?.projectNumber.orEmpty(),
                     oracleCode = project?.oracleCode.orEmpty(),
+                    description = entry.description,
                     system = entry.system.label,
                     minutes = entry.minutes,
                 )
@@ -54,6 +56,7 @@ object ExportFormat {
                     projectName = OVERHEAD_NAME,
                     projectNumber = "",
                     oracleCode = "",
+                    description = "Department Hours",
                     system = overheadSystem?.label.orEmpty(),
                     minutes = overhead,
                 )
@@ -72,6 +75,7 @@ object ExportFormat {
                     row.projectName,
                     row.projectNumber,
                     row.oracleCode,
+                    row.description,
                     row.system,
                     Hours.plain(row.minutes),
                 ).joinToString(",") { escapeCsv(it) },

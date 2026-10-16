@@ -301,6 +301,13 @@ private fun EntryCard(row: EntryRow, onEdit: () -> Unit, onDelete: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (row.entry.description.isNotBlank()) {
+                    Text(
+                        row.entry.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
                     Text(Fmt.hoursWithUnit(row.entry.minutes), fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.width(8.dp))

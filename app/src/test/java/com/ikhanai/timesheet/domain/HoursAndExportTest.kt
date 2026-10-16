@@ -52,7 +52,7 @@ class HoursAndExportTest {
                 range.start.plusDays(it),
                 DayType.WORKING,
                 480,
-                listOf(EntryLine(1, 240, BookingSystem.NTIME), EntryLine(2, 180, BookingSystem.P6)),
+                listOf(EntryLine(1, 240, BookingSystem.NTIME, "Drawings, rev B"), EntryLine(2, 180, BookingSystem.P6, "Schedule")),
             )
         } + DayRecord(range.start.plusDays(5), DayType.LEAVE, 480, emptyList())
         return range to days
@@ -68,6 +68,10 @@ class HoursAndExportTest {
         val csv = ExportFormat.toCsv(rows)
         val lines = csv.trimEnd().split("\r\n")
         assertEquals(ExportFormat.CSV_HEADER, lines.first())
+        assertEquals(
+            "${range.start},Working,Project A,PRJ-2041,4100.22.07,\"Drawings, rev B\",NTIME,4",
+            lines[1],
+        )
         val hoursSum = lines.drop(1).map { BigDecimal(it.substringAfterLast(',')) }.fold(BigDecimal.ZERO, BigDecimal::add)
 
         val summary = TimesheetCalculator.summarize(range, days, null, setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY), range.end)

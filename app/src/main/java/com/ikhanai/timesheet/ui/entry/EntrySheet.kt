@@ -1,6 +1,5 @@
 package com.ikhanai.timesheet.ui.entry
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,10 +17,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -40,7 +41,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -76,7 +76,7 @@ fun EntrySheet(
         )
     }
     var system by rememberSaveable { mutableStateOf(editing?.entry?.system ?: BookingSystem.NTIME) }
-    var nameFocused by remember { mutableStateOf(false) }
+    var description by rememberSaveable { mutableStateOf(editing?.entry?.description.orEmpty()) }
     var errors by remember { mutableStateOf(FormErrors()) }
     var askRename by remember { mutableStateOf<String?>(null) }
     var askMerge by remember { mutableStateOf<Int?>(null) }
@@ -87,7 +87,7 @@ fun EntrySheet(
         if (busy) return
         busy = true
         scope.launch {
-            val result = onSubmit(EntryForm(name, number, code, hours, system), rename, merge)
+            val result = onSubmit(EntryForm(name, number, code, description, hours, system), rename, merge)
             busy = false
             when (result) {
                 is SubmitResult.Saved -> {
@@ -113,48 +113,24 @@ fun EntrySheet(
         ) {
             Text(if (editing == null) "Add project hours" else "Edit entry", style = MaterialTheme.typography.titleLarge)
 
-            OutlinedTextField(
-                value = name,
-                onValueChange = {
+            ProjectPicker(
+                name = name,
+                number = number,
+                code = code,
+                projects = projects,
+                error = errors.name,
+                onNameChange = {
                     name = it
                     errors = errors.copy(name = null)
                 },
-                label = { Text("Project name") },
-                singleLine = true,
-                isError = errors.name != null,
-                supportingText = errors.name?.let { { Text(it) } },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { nameFocused = it.isFocused },
+                onPick = { p ->
+                    name = p.name
+                    number = p.projectNumber
+                    code = p.oracleCode
+                    p.lastSystem?.let { system = it }
+                    errors = errors.copy(name = null, number = null, code = null)
+                },
             )
-            val query = name.trim()
-            val suggestions = if (nameFocused && query.isNotEmpty()) {
-                projects.filter { p ->
-                    !p.archived &&
-                        (p.name.contains(query, ignoreCase = true) || p.projectNumber.contains(query, ignoreCase = true)) &&
-                        !(p.name == name && p.projectNumber == number && p.oracleCode == code)
-                }.take(5)
-            } else {
-                emptyList()
-            }
-            if (suggestions.isNotEmpty()) {
-                Card {
-                    suggestions.forEach { p ->
-                        ListItem(
-                            headlineContent = { Text(p.name) },
-                            supportingContent = { Text("${p.projectNumber} · ${p.oracleCode}") },
-                            modifier = Modifier.clickable {
-                                name = p.name
-                                number = p.projectNumber
-                                code = p.oracleCode
-                                p.lastSystem?.let { system = it }
-                                errors = FormErrors()
-                            },
-                        )
-                    }
-                }
-            }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -184,6 +160,24 @@ fun EntrySheet(
                     modifier = Modifier.weight(1f),
                 )
             }
+
+            OutlinedTextField(
+                value = description,
+                onValueChange = {
+                    description = it
+                    errors = errors.copy(description = null)
+                },
+                label = { Text("Task description") },
+                placeholder = { Text("What did you work on?") },
+                minLines = 2,
+                maxLines = 4,
+                isError = errors.description != null,
+                supportingText = {
+                    Text(errors.description ?: "${description.trim().length} / ${EntryViewModel.MAX_DESCRIPTION}")
+                },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                modifier = Modifier.fillMaxWidth(),
+            )
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 FilledTonalIconButton(onClick = {
@@ -296,3 +290,75 @@ fun EntrySheet(
     }
 }
 
+
+/**
+ * Project name field with a dropdown of saved projects (FR-4). Picking one fills in the number
+ * and Oracle code; typing filters the list, and a new name can still be entered.
+ */
+@Composable
+private fun ProjectPicker(
+    name: String,
+    number: String,
+    code: String,
+    projects: List<Project>,
+    error: String?,
+    onNameChange: (String) -> Unit,
+    onPick: (Project) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val active = projects.filter { !it.archived }
+    val picked = active.any { it.name == name && it.projectNumber == number && it.oracleCode == code }
+    val query = name.trim()
+    val options = if (picked || query.isEmpty()) {
+        active
+    } else {
+        active.filter {
+            it.name.contains(query, ignoreCase = true) ||
+                it.projectNumber.contains(query, ignoreCase = true) ||
+                it.oracleCode.contains(query, ignoreCase = true)
+        }
+    }
+    val showMenu = expanded && options.isNotEmpty()
+    ExposedDropdownMenuBox(expanded = showMenu, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = {
+                onNameChange(it)
+                expanded = true
+            },
+            label = { Text("Project name") },
+            placeholder = { Text(if (active.isEmpty()) "Enter a new project" else "Pick a saved project or type a new one") },
+            singleLine = true,
+            isError = error != null,
+            supportingText = error?.let { { Text(it) } },
+            trailingIcon = {
+                if (active.isNotEmpty()) ExposedDropdownMenuDefaults.TrailingIcon(expanded = showMenu)
+            },
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryEditable),
+        )
+        ExposedDropdownMenu(expanded = showMenu, onDismissRequest = { expanded = false }) {
+            options.forEach { p ->
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(p.name)
+                            Text(
+                                "${p.projectNumber} · ${p.oracleCode}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
+                    onClick = {
+                        onPick(p)
+                        expanded = false
+                    },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                )
+            }
+        }
+    }
+}

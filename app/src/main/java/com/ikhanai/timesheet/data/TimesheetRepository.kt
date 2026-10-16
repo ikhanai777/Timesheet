@@ -54,7 +54,7 @@ class TimesheetRepository(private val db: TimesheetDatabase) {
                     date = sheet.date,
                     dayType = sheet.dayType,
                     availableMinutes = sheet.availableMinutes,
-                    entries = byDate[sheet.date].orEmpty().map { EntryLine(it.projectId, it.minutes, it.system) },
+                    entries = byDate[sheet.date].orEmpty().map { EntryLine(it.projectId, it.minutes, it.system, it.description) },
                 )
             }
         }
@@ -94,15 +94,30 @@ class TimesheetRepository(private val db: TimesheetDatabase) {
         projectId: Long,
         minutes: Int,
         system: BookingSystem,
+        description: String,
     ) = db.withTransaction {
         ensureSheet(date, dayType, availableMinutes)
         val now = Instant.now()
         when {
-            mergeInto != null -> entryDao.update(mergeInto.copy(minutes = mergeInto.minutes + minutes, updatedAt = now))
-            editing != null -> entryDao.update(
-                editing.copy(projectId = projectId, minutes = minutes, system = system, updatedAt = now),
+            mergeInto != null -> entryDao.update(
+                mergeInto.copy(
+                    minutes = mergeInto.minutes + minutes,
+                    description = mergeDescriptions(mergeInto.description, description),
+                    updatedAt = now,
+                ),
             )
-            else -> entryDao.insert(TimeEntry(date = date, projectId = projectId, minutes = minutes, system = system))
+            editing != null -> entryDao.update(
+                editing.copy(
+                    projectId = projectId,
+                    minutes = minutes,
+                    system = system,
+                    description = description,
+                    updatedAt = now,
+                ),
+            )
+            else -> entryDao.insert(
+                TimeEntry(date = date, projectId = projectId, minutes = minutes, system = system, description = description),
+            )
         }
         projectDao.get(projectId)?.let {
             projectDao.update(it.copy(lastSystem = system, archived = false, updatedAt = now))
@@ -126,7 +141,13 @@ class TimesheetRepository(private val db: TimesheetDatabase) {
             ensureSheet(to, dayType, availableMinutes)
             entryDao.insertAll(
                 source.map {
-                    TimeEntry(date = to, projectId = it.projectId, minutes = it.minutes, system = it.system)
+                    TimeEntry(
+                        date = to,
+                        projectId = it.projectId,
+                        minutes = it.minutes,
+                        system = it.system,
+                        description = it.description,
+                    )
                 },
             )
             source.size
@@ -134,6 +155,12 @@ class TimesheetRepository(private val db: TimesheetDatabase) {
 
     suspend fun applyAvailableFrom(from: LocalDate, minutes: Int): Int =
         daySheetDao.applyAvailableFrom(from, minutes, Instant.now())
+
+    private fun mergeDescriptions(existing: String, added: String): String = when {
+        added.isBlank() || existing.contains(added) -> existing
+        existing.isBlank() -> added
+        else -> "$existing; $added"
+    }
 
     private suspend fun ensureSheet(date: LocalDate, dayType: DayType, availableMinutes: Int) {
         if (daySheetDao.get(date) == null) {

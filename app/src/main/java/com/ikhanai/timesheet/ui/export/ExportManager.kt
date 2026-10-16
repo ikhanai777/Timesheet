@@ -74,13 +74,17 @@ object ExportManager {
             )
             pdf.gap()
             pdf.heading("Daily detail", size = 13f)
-            val detailCols = floatArrayOf(0f, 75f, 245f, 330f, 420f, 470f)
-            pdf.row(listOf("Date", "Project", "Number", "Oracle code", "System", "Hours"), detailCols, bold = true)
+            val detailCols = floatArrayOf(0f, 62f, 162f, 222f, 287f, 440f, 480f)
+            pdf.row(
+                listOf("Date", "Project", "Number", "Oracle code", "Task description", "System", "Hours"),
+                detailCols,
+                bold = true,
+            )
             for (row in rows) {
                 pdf.row(
                     listOf(
                         row.date.toString(), row.projectName, row.projectNumber, row.oracleCode,
-                        row.system, Hours.format(row.minutes),
+                        row.description, row.system, Hours.format(row.minutes),
                     ),
                     detailCols,
                 )

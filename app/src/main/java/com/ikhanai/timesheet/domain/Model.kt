@@ -19,6 +19,7 @@ data class EntryLine(
     val projectId: Long,
     val minutes: Int,
     val system: BookingSystem,
+    val description: String = "",
 )
 
 /** A saved Day Sheet with its entries. Days without a Day Sheet have no record. */
