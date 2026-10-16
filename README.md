@@ -24,6 +24,16 @@ Android app for logging daily project manhours against **NTIME** and **P6**. Hou
 - **Settings** (FR-6): available hours, hours step, week start, weekend days, overtime, which system overhead is booked into, future dates, theme, and JSON backup/restore. Changing available hours applies to new days only, with an option to apply it to saved days from a chosen date.
 - **Reminder** (FR-7): optional daily notification on working days that haven't been logged.
 
+## Excel version
+
+[`excel/Timesheet_2026.xlsx`](excel/Timesheet_2026.xlsx) does the same job in a workbook, with no app needed:
+
+- **One sheet per month.** On the left is an entry log: date, project (dropdown), task description, NTIME/P6 and hours; the project number and Oracle code fill in automatically, and a Check column flags problems. On the right is a dashboard with the month's totals, a weekly summary and chart, projects this month (largest first), and a daily summary showing each day's overhead and status.
+- **2026 Dashboard:** year totals, a month-by-month table and chart, and the top projects.
+- **Projects** (enter each once) and **Settings** (available hours, week start, where overhead is booked, overtime).
+
+The overhead rules are the same as the app's. Rebuild it for another year with `python3 excel/build_timesheet_xlsx.py 2027 excel/Timesheet_2027.xlsx`.
+
 ## Build and run
 
 Requirements: JDK 17+ and the Android SDK (platform 35). Either open the project in Android Studio, or:
